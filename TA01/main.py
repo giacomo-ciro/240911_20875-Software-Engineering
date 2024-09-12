@@ -1,17 +1,5 @@
-# import argparse
-
-# parser = argparse.ArgumentParser(
-#                     prog='ProgramName',
-#                     description='What the program does',
-#                     epilog='Text at the bottom of help')
-
-# parser.add_argument('filename')
-# parser.add_argument('-c', '--count')
-# parser.add_argument('-v', '--v', action='store_true')
-
-# args = parser.parse_args()
-# print(args)       # nameSpace object
-# print(vars(args)) # dict
+import sys
+print(sys.argv)
 
 def  truth_table_2(truth_values):
     print('#    a    b        z')
