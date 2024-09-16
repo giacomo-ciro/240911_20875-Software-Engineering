@@ -2,13 +2,85 @@ import sys
 import os
 import re
 
+def evaluate_boolean_expression(expr, variables):
+
+    # Function to evaluate 'and', 'or', 'not' expressions
+    def apply_operator(op, a, b=None):
+        if op == 'and':
+            return a and b
+        elif op == 'or':
+            return a or b
+        elif op == 'not':
+            return not a
+
+    def recursive_solve(expression):
+
+        # Base case: if it's a single variable, return its boolean value
+        if len(expression) == 1:
+            if expression[0] in variables:
+                return variables[expression[0]]
+            elif expression[0] == 'True':
+                return True
+            elif expression[0] == 'False':
+                return False
+        
+        # Handling parentheses recursively
+        stack = []
+        i = 0
+        while i < len(expression):
+            token = expression[i]
+            
+            if token == '(':
+                # Find the matching closing parenthesis
+                open_parens = 1
+                for j in range(i + 1, len(expression)):
+                    if expression[j] == '(':
+                        open_parens += 1
+                    elif expression[j] == ')':
+                        open_parens -= 1
+                    if open_parens == 0:
+                        # Solve the sub-expression within the parentheses
+                        sub_expr_result = recursive_solve(expression[i + 1:j])
+                        stack.append(sub_expr_result)
+                        i = j  # Move the index to after the closing ')'
+                        break
+
+            elif token in ('and', 'or', 'not'):
+                # Just add operators to the stack
+                stack.append(token)
+            else:
+                # Add the variable or boolean constant
+                stack.append(variables.get(token, token))
+
+            i += 1
+
+        # Now evaluate the expression in the stack (consider 'not', 'and', 'or')
+        while 'not' in stack:
+            idx = stack.index('not')
+            stack[idx:idx+2] = [apply_operator('not', stack[idx+1])]
+
+        while 'and' in stack:
+            idx = stack.index('and')
+            stack[idx-1:idx+2] = [apply_operator('and', stack[idx-1], stack[idx+1])]
+
+        while 'or' in stack:
+            idx = stack.index('or')
+            stack[idx-1:idx+2] = [apply_operator('or', stack[idx-1], stack[idx+1])]
+
+        return stack[0]
+    
+    # Start the recursive solving process
+    return recursive_solve(expr)
+
 class Compiler():
     
     def __init__(self,
                  )->None:    
         
         self.vars = []
-        self.ids = []
+        self.ids = {}
+        self.table = []
+
         return
     
     def tokenize(self,
@@ -63,7 +135,7 @@ class Compiler():
         )->None:
         """
         
-        Parses the input according to parsing rules. Returns Variable Declarations, Assignments and Show Instructions.
+        Parses the input according to parsing rules. Executes all the instructions and prints show when required.
 
             tokens:
                 <list>:
@@ -84,34 +156,31 @@ class Compiler():
         # Process instructions
         for i in instructions:
 
-            # DECLARATION
+            # DECLARATION -> store in self.vars
             if i[0] == 'var':
-                print(f'Declaration: {i}')
                 for t in i[1:]:
                     if t == ';':
                         break
                     self.vars.append(t)
             
-            # ASSIGNMENT
+            # ASSIGNMENT -> store in self.ids as ('z', ['x', 'and', 'y'])
             elif i[1] == '=':
-                print(f'Assignment: {i}')
                 if (i[0] not in self.vars) and (i[0] not in self.ids):
                     buffer = []
                     for t in i[2:]:
                         if t == ';':
                             break
                         buffer.append(t)
-                    self.ids.append((i[0], buffer))         # e.g. ('z', ['x', 'and', 'y'])
+                    self.ids[i[0]] = buffer
                 else:
                     raise Exception(f"{i[0]} already exists.")
             
 
             # SHOW
             elif i[0] == 'show' or i[0] == 'show_ones':
-                print(f'Show: {i}')
-                # TODO: when a show instruction is called do the following:
-                # evaluate ALL ids (not only the ones to be showed, there might be cross references)
-                # show the required ones
+                ids_to_show = i[1:]
+                self._evaluate()     # exclude 'show'/'show_ones' and ';'
+                self._show(ids_to_show, show_ones=i[0] == 'show_ones')
 
             # INVALID
             else:
@@ -119,51 +188,55 @@ class Compiler():
         
         pass
 
-    def _solve():
-        """
+    def _evaluate(self):
 
-        Solves all the ids in self.ids
-        
-        """
-
-        # TODO: the value of the vars are binary numbers increasing at each row
-        # x y z
-        # 0 0 0
-        # 0 0 1
-        # 0 1 0
-        # etc. 
-        # so you have a clean way to define raws, just a n bit integers (where n = len(self.vars)) 
-        # and the identifiers are obtained as a consequence
+        vars = self.vars
+        n = len(vars)
+        for i in range(2**n):
+            variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n)]
+            res = dict(zip(vars, variables_truth_values))
+            # evaluate all ids (to avoid issues if back references among ids)
+            for id in self.ids.keys():
+                res[id] = evaluate_boolean_expression(self.ids[id], res)
+            
+            self.table.append(res)
     
-    def _show(ids):
+    def _show(self,
+              ids_to_show: list=None,
+              show_ones: bool=False
+              )->None:
         """
         
-        Shows the truth table for a list of identifiers.
+        Shows the truth table for a list of identifiers. If show_ones == True, only 
+        rows for which at least one identifiers is true are shown
         
         """
+        if show_ones:
+            valid_row = False
+        else:
+            valid_row = True
+        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
+        for row in self.table:
+            current_row = ' '
+            for var in self.vars:
+                current_row += ' 1' if row[var] else ' 0'
+            current_row += '  '
+            for id in ids_to_show:
+                current_row += ' 1' if row[id] else ' 0'
+                if row[id]:
+                    valid_row = True
+            if valid_row:
+                print(current_row)
+                valid_row = False if show_ones else True
 
 compiler = Compiler()
 
 with open(sys.argv[1], 'r') as f:
     
     f = f.read()
-    
-    print("-"*30)
-    print(f"Input of type {type(f)}:")
-    print("-"*30)
-    print(f)
+    print(f"Input:\n\n{f}\n\n")
     
     tokens = compiler.tokenize(f)
-
-    print("-"*30)
-    print(f'Tokenized Input:')
-    print("-"*30)
-    print(tokens)
-
-    print("-"*30)
-    print(f'Instructions:')
-    print("-"*30)
+    print(f'Tokenized Input:\n\n{tokens}\n\n')
 
     compiler.parse(tokens)
-    print(compiler.vars)
-    print(compiler.ids)
