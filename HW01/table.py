@@ -86,9 +86,10 @@ class Compiler():
     def __init__(self,
                  )->None:    
         
-        self.vars = []
-        self.ids = {}
-        self.table = []
+        self.vars = []      # variables declared in the input
+        self.ids = {}       # identifiers and their boolean expressions
+        self.table = []     # current truth table (list of dictionaries)
+        self.output = ''    # all the truth tables to be shown
 
         return
     
@@ -230,15 +231,15 @@ class Compiler():
         for i in range(2**n):
             
             if verbose:
-                print(f"Evaluating row {i}/{2**n}")
+                print(f"Evaluating row {i:,}/{2**n:,}")
             
             # generate all possible combinations of True/False, viewed as binary numbers monotonically increasing    
             variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]
             row = dict(zip(vars, variables_truth_values))
 
             for id in self.ids.keys():
-                if verbose:
-                    print(f"    Evaluating {id}")
+                # if verbose:
+                #     print(f"    Evaluating {id}")
                 row[id] = evaluate_boolean_expression(self.ids[id], row)
             
             self.table.append(row)
@@ -262,7 +263,7 @@ class Compiler():
         
         """
         valid_row = not show_ones
-        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
+        output = '#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n'
         for row in self.table:
             current_row = ' '
             for var in self.vars:
@@ -275,10 +276,11 @@ class Compiler():
                 if row[id]:
                     valid_row = True
             if valid_row:
-                print(current_row)
+                output += current_row + '\n'
                 valid_row = False if show_ones else True
         
-        return
+        self.output += output
+        return output
         
     def compile(self,
                 f,
@@ -313,4 +315,8 @@ with open(sys.argv[1], 'r') as f:
 
     compiler = Compiler()    
     f = f.read()
-    compiler.compile(f, verbose=True)
+    compiler.compile(f, verbose=False)
+    print(compiler.output)
+
+with open('./output.txt', 'w') as f:
+    f.write(compiler.output)

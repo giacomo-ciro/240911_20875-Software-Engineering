@@ -1,0 +1,41 @@
+# Declaring 24 variables: v1 to v24
+var v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 v18 v19 v20;
+var v21 v22 v23 v24;
+
+# Assigning complex Boolean expressions
+e1 = (v1 and v2) or (not v3);
+e2 = (v4 or v5) and (not (v6 or v7));
+e3 = (v8 and v9 and v10) or (v11 and not v12);
+e4 = not (v13 or (v14 and v15)) and (v16 or v17);
+e5 = (v18 and v19) or (not v20);
+e6 = (v21 and (v22 or v23)) and (not v24);
+
+# More complex nested expressions
+e7 = ((v1 or v2) and (v3 or not v4)) or (v5 and not v6);
+e8 = (v7 and (v8 or not (v9 and v10))) or (v11 and not v12);
+e9 = ((v13 or v14) and v15) or (v16 and not (v17 or v18));
+e10 = not (v19 and (v20 or v21)) or (v22 and v23);
+e11 = (v24 and not v1) or ((v2 or v3) and not v4);
+e12 = (v5 or (v6 and v7)) and (v8 or not v9);
+
+# Additional complex expressions
+e13 = ((v10 or v11) and (v12 or not v13)) or v14;
+e14 = (v15 and (v16 or v17)) and not (v18 and v19);
+e15 = not ((v20 and v21) or (v22 and v23)) and (v24 or v1);
+e16 = (v2 and (v3 or v4)) or not (v5 and v6);
+e17 = (v7 and v8) or ((v9 and not v10) and v11);
+e18 = not (v12 and (v13 or v14)) or (v15 and v16);
+
+# Even more complex expressions
+e19 = (v17 or v18) and not (v19 and v20);
+e20 = (v21 and (v22 or v23)) or (not v24 and v1);
+e21 = (v2 or v3) and (v4 and not (v5 and v6));
+e22 = (v7 or v8) and (v9 and not v10);
+e23 = (v11 and not v12) or (v13 and v14);
+e24 = not (v15 or (v16 and v17)) and (v18 or v19);
+
+# Show the truth table of all 24 expressions
+show e1 e2 e3 e4 e5 e6 e7 e8 e9 e10 e11 e12 e13 e14 e15 e16 e17 e18 e19 e20 e21 e22 e23 e24;
+
+# Show only the rows with ones for some complex expressions
+show ones e5 e10 e15 e20 e24;
