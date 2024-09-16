@@ -6,6 +6,13 @@ def evaluate_boolean_expression(expr, variables):
 
     # Function to evaluate 'and', 'or', 'not' expressions
     def apply_operator(op, a, b=None):
+        
+        # check validity of variables
+        if (a not in variables.keys()) and (a not in (True, False)):
+            raise Exception(f"Unknown variable '{a}'")
+        elif (b != None) and ( b not in variables.keys()) and (b not in (True, False)):
+            raise Exception(f"Unkown variable '{b}'")
+        
         if op == 'and':
             return a and b
         elif op == 'or':
@@ -23,6 +30,8 @@ def evaluate_boolean_expression(expr, variables):
                 return True
             elif expression[0] == 'False':
                 return False
+            else:
+                raise Exception(f"Invalid expression {expression[0]}")
         
         # Handling parentheses recursively
         stack = []
@@ -83,16 +92,16 @@ class Compiler():
 
         return
     
-    def tokenize(self,
+    def _tokenize(self,
                  s: str=None
                  )->str:
         '''
         
         Tokenize input.txt converted to string according to tokenization rules.
             
-            s:
-                <str>:
-                    the string of raw text to be tokenized
+        s:
+            <str>:
+                the string of raw text to be tokenized
 
         Returns a list of tokens, i.e., a <list> of <str>
 
@@ -110,7 +119,7 @@ class Compiler():
             if re.match(r'[A-Za-z_]', char) and not word:   
                 word.append(char)
             elif re.match(r'[0-9]', char) and not word:
-                print('WARNING: encountered word starting with a digit')
+                raise Exception('Invalid word starting with a digit')
             
             # WORDS --> any sequence of (one or more) consecutive letters, digits, or underscores
             elif re.match(r'[A-Za-z_0-9]', char) and word:
@@ -130,22 +139,28 @@ class Compiler():
 
         return tokens
     
-    def parse(self,
-              tokens: list=None
+    def _parse(self,
+              tokens: list=None,
+              verbose: bool=False
         )->None:
         """
         
-        Parses the input according to parsing rules. Executes all the instructions and prints show when required.
+        Parses the input according to parsing rules.
+        Identifies the instructions and executes them.
+        Prints the truth tables when required.
 
-            tokens:
-                <list>:
-                    a list of valid tokens.
-        Returns
+        tokens:
+            <list>:
+                a list of valid tokens.
+        verbose:
+            <bool>:
+                whether to print intermediate steps.
 
         """
         # Divide instructions
         instructions = []
         buffer = []
+        re_evaluate = True  # a flag to re-evaluate the truth table when new variables are declared or assignments are made
         for t in tokens:
             if t == ';':
                 instructions.append(buffer)
@@ -158,6 +173,9 @@ class Compiler():
 
             # DECLARATION -> store in self.vars
             if i[0] == 'var':
+                re_evaluate = True
+                if verbose:
+                    print(f'Declaration: {i}')
                 for t in i[1:]:
                     if t == ';':
                         break
@@ -165,6 +183,9 @@ class Compiler():
             
             # ASSIGNMENT -> store in self.ids as ('z', ['x', 'and', 'y'])
             elif i[1] == '=':
+                re_evaluate = True
+                if verbose:
+                    print(f'Assignment: {i}')
                 if (i[0] not in self.vars) and (i[0] not in self.ids):
                     buffer = []
                     for t in i[2:]:
@@ -178,8 +199,12 @@ class Compiler():
 
             # SHOW
             elif i[0] == 'show' or i[0] == 'show_ones':
+                if verbose:
+                    print(f'Show: {i}')
                 ids_to_show = i[1:]
-                self._evaluate()     # exclude 'show'/'show_ones' and ';'
+                if re_evaluate:
+                    self._evaluate(verbose=verbose)     # evaluate all ids to avoid back-references problems
+                    re_evaluate = False
                 self._show(ids_to_show, show_ones=i[0] == 'show_ones')
 
             # INVALID
@@ -188,18 +213,37 @@ class Compiler():
         
         pass
 
-    def _evaluate(self):
-
+    def _evaluate(self,
+                  verbose: bool=False,
+                  )->None:
+        """
+        
+        Create the truth table with all identifiers in self.ids and all variables in self.vars.
+        The truth table is represented as a list of dictionaries, each representing one row.
+        It is stored in self.table.
+        
+        """
+        self.table = []
         vars = self.vars
         n = len(vars)
+        
         for i in range(2**n):
-            variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n)]
-            res = dict(zip(vars, variables_truth_values))
-            # evaluate all ids (to avoid issues if back references among ids)
-            for id in self.ids.keys():
-                res[id] = evaluate_boolean_expression(self.ids[id], res)
             
-            self.table.append(res)
+            if verbose:
+                print(f"Evaluating row {i}/{2**n}")
+            
+            # generate all possible combinations of True/False, viewed as binary numbers monotonically increasing    
+            variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]
+            row = dict(zip(vars, variables_truth_values))
+
+            for id in self.ids.keys():
+                if verbose:
+                    print(f"    Evaluating {id}")
+                row[id] = evaluate_boolean_expression(self.ids[id], row)
+            
+            self.table.append(row)
+        
+        return
     
     def _show(self,
               ids_to_show: list=None,
@@ -207,14 +251,17 @@ class Compiler():
               )->None:
         """
         
-        Shows the truth table for a list of identifiers. If show_ones == True, only 
-        rows for which at least one identifiers is true are shown
+        Shows the truth table for a list of identifiers.
+
+        ids_to_show:
+            <list>:
+                a list of identifiers to show in the truth table.
+        show_ones:
+            <bool>:
+                whether to show only rows where at least one identifier takes a value of 1.
         
         """
-        if show_ones:
-            valid_row = False
-        else:
-            valid_row = True
+        valid_row = not show_ones
         print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
         for row in self.table:
             current_row = ' '
@@ -222,21 +269,48 @@ class Compiler():
                 current_row += ' 1' if row[var] else ' 0'
             current_row += '  '
             for id in ids_to_show:
+                if id not in row.keys():
+                    raise Exception(f"Unknown identifier '{id}'")
                 current_row += ' 1' if row[id] else ' 0'
                 if row[id]:
                     valid_row = True
             if valid_row:
                 print(current_row)
                 valid_row = False if show_ones else True
+        
+        return
+        
+    def compile(self,
+                f,
+                verbose=False
+                )->None:
+        """
+        
+        Compiles the input string f by first tokenizing it and then parsing it.
+        Always prints the requested truth tables to the console. If required, prints also intermediate steps.
 
-compiler = Compiler()
+        f:
+            <str>:
+                the input string to be compiled.
+        verbose:
+            <bool>:
+                whether to print intermediate steps.
+        
+        """
+        
+        if verbose:
+            print(f"Input:\n\n{f}\n\n")
+        
+        tokens = self._tokenize(f)
+        
+        if verbose:
+            print(f'Tokenized Input:\n\n{tokens}\n\n')
+        
+        self._parse(tokens, verbose=verbose)
+
 
 with open(sys.argv[1], 'r') as f:
-    
-    f = f.read()
-    print(f"Input:\n\n{f}\n\n")
-    
-    tokens = compiler.tokenize(f)
-    print(f'Tokenized Input:\n\n{tokens}\n\n')
 
-    compiler.parse(tokens)
+    compiler = Compiler()    
+    f = f.read()
+    compiler.compile(f, verbose=True)

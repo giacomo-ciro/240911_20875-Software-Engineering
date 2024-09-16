@@ -1,6 +1,9 @@
-# We declare two variables: x and y
-var x y;
-# We assign (x xor y) to z
-z = (x or y) and (not (x and y));
-# We show the truth table of z
-show z;
+# Declaring five variables: p, q, r, s, t
+var p q r;
+
+# Assigning complex expressions
+u = (p and q) or (not r);
+t = False;
+
+# Show the truth table for u, v, w, x, y
+show t;

@@ -1,7 +1,7 @@
 import sys
 print(sys.argv)
 
-def  print_truth_table(truth_values):
+def  truth_table_2(truth_values):
     print('#    a    b        z')
     print(f'     0    0        {1 if truth_values[0] else 0}')
     print(f'     0    1        {1 if truth_values[1] else 0}')
