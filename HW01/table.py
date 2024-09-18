@@ -2,90 +2,6 @@ import sys
 import os
 import re
 
-def evaluate_boolean_expression(expr, variables):
-
-    # Function to evaluate 'and', 'or', 'not' expressions
-    def apply_operator(op, a, b=None):
-        
-        # check validity of variables
-        if (a not in variables.keys()) and (a not in (True, False)):
-            raise Exception(f"Unknown variable '{a}'")
-        elif (b != None) and ( b not in variables.keys()) and (b not in (True, False)):
-            raise Exception(f"Unkown variable '{b}'")
-        
-        if op == 'and':
-            return a and b
-        elif op == 'or':
-            return a or b
-        elif op == 'not':
-            return not a
-
-    def recursive_solve(expression):
-
-        # Base case: if it's a single variable, return its boolean value
-        if len(expression) == 1:
-            if expression[0] in variables:
-                return variables[expression[0]]
-            elif expression[0] == 'True':
-                return True
-            elif expression[0] == 'False':
-                return False
-            else:
-                raise Exception(f"Invalid expression {expression[0]}")
-        
-        # Handling parentheses recursively
-        stack = []
-        i = 0
-        while i < len(expression):
-            token = expression[i]
-            
-            if token == '(':
-                # Find the matching closing parenthesis
-                open_parens = 1
-                for j in range(i + 1, len(expression)):
-                    if expression[j] == '(':
-                        open_parens += 1
-                    elif expression[j] == ')':
-                        open_parens -= 1
-                    if open_parens == 0:
-                        # Solve the sub-expression within the parentheses
-                        sub_expr_result = recursive_solve(expression[i + 1:j])
-                        stack.append(sub_expr_result)
-                        i = j  # Move the index to after the closing ')'
-                        break
-
-            elif token in ('and', 'or', 'not'):
-                # Just add operators to the stack
-                stack.append(token)
-            else:
-                # Add the variable or boolean constant
-                stack.append(variables.get(token, token))
-
-            i += 1
-
-            if False in stack and 'and' in stack:
-                return False 
-            if True in stack and 'or' in stack:
-                return True
-
-        # Now evaluate the expression in the stack (consider 'not', 'and', 'or')
-        while 'not' in stack:
-            idx = stack.index('not')
-            stack[idx:idx+2] = [apply_operator('not', stack[idx+1])]
-
-        while 'and' in stack:
-            idx = stack.index('and')
-            stack[idx-1:idx+2] = [apply_operator('and', stack[idx-1], stack[idx+1])]
-
-        while 'or' in stack:
-            idx = stack.index('or')
-            stack[idx-1:idx+2] = [apply_operator('or', stack[idx-1], stack[idx+1])]
-
-        return stack[0]
-    
-    # Start the recursive solving process
-    return recursive_solve(expr)
-
 class Compiler():
     
     def __init__(self,
@@ -95,9 +11,96 @@ class Compiler():
         self.ids = {}       # identifiers and their boolean expressions
         self.table = []     # current truth table (list of dictionaries)
         self.output = ''    # all the truth tables to be shown
+        self.sub_exprs = [] # all the sub-expressions found in the input
 
         return
-    
+
+    def evaluate_boolean_expression(self, expr, variables):
+
+        # Function to evaluate 'and', 'or', 'not' expressions
+        def apply_operator(op, a, b=None):
+            
+            # check validity of variables
+            if (a not in variables.keys()) and (a not in (True, False)):
+                raise Exception(f"Unknown variable '{a}'")
+            elif (b != None) and ( b not in variables.keys()) and (b not in (True, False)):
+                raise Exception(f"Unkown variable '{b}'")
+            
+            if op == 'and':
+                return a and b
+            elif op == 'or':
+                return a or b
+            elif op == 'not':
+                return not a
+
+        def recursive_solve(expression):
+
+            # Base case: if it's a single variable, return its boolean value
+            if len(expression) == 1:
+                if expression[0] in variables:
+                    return variables[expression[0]]
+                elif expression[0] == 'True':
+                    return True
+                elif expression[0] == 'False':
+                    return False
+                else:
+                    raise Exception(f"Invalid expression {expression[0]}")
+            
+            # Handling parentheses recursively
+            stack = []
+            i = 0
+            while i < len(expression):
+                token = expression[i]
+                
+                if token == '(':
+                    # Find the matching closing parenthesis
+                    open_parens = 1
+                    for j in range(i + 1, len(expression)):
+                        if expression[j] == '(':
+                            open_parens += 1
+                        elif expression[j] == ')':
+                            open_parens -= 1
+                        if open_parens == 0:
+                            # Solve the sub-expression within the parentheses
+                            sub_expr_result = recursive_solve(expression[i + 1:j])
+                            
+                            self.sub_exprs.append(expression[i + 1:j])
+                            
+                            stack.append(sub_expr_result)
+                            i = j  # Move the index to after the closing ')'
+                            break
+
+                elif token in ('and', 'or', 'not'):
+                    # Just add operators to the stack
+                    stack.append(token)
+                else:
+                    # Add the variable or boolean constant
+                    stack.append(variables.get(token, token))
+
+                i += 1
+
+                if (False in stack) and ('and' in stack):
+                    return False 
+                if (True in stack) and ('or' in stack):
+                    return True
+
+            # Now evaluate the expression in the stack (consider 'not', 'and', 'or')
+            while 'not' in stack:
+                idx = stack.index('not')
+                stack[idx:idx+2] = [apply_operator('not', stack[idx+1])]
+
+            while 'and' in stack:
+                idx = stack.index('and')
+                stack[idx-1:idx+2] = [apply_operator('and', stack[idx-1], stack[idx+1])]
+
+            while 'or' in stack:
+                idx = stack.index('or')
+                stack[idx-1:idx+2] = [apply_operator('or', stack[idx-1], stack[idx+1])]
+
+            return stack[0]
+        # Start the recursive solving process
+        return recursive_solve(expr)
+
     def _tokenize(self,
                  s: str=None
                  )->str:
@@ -211,7 +214,7 @@ class Compiler():
                 if re_evaluate:
                     self._evaluate(verbose=verbose)     # evaluate all ids to avoid back-references problems
                     re_evaluate = False
-                self._show(ids_to_show, show_ones=i[0] == 'show_ones')
+                # self._show(ids_to_show, show_ones=i[0] == 'show_ones')
 
             # INVALID
             else:
@@ -245,7 +248,7 @@ class Compiler():
             for id in self.ids.keys():
                 # if verbose:
                 #     print(f"    Evaluating {id}")
-                row[id] = evaluate_boolean_expression(self.ids[id], row)
+                row[id] = self.evaluate_boolean_expression(self.ids[id], row)
             
             self.table.append(row)
         
@@ -320,8 +323,9 @@ with open(sys.argv[1], 'r') as f:
 
     compiler = Compiler()    
     f = f.read()
-    compiler.compile(f, verbose=False)
+    compiler.compile(f, verbose=True)
     print(compiler.output)
+    print(len(compiler.sub_exprs))
 
-with open('./output.txt', 'w') as f:
-    f.write(compiler.output)
+# with open('./output.txt', 'w') as f:
+#     f.write(compiler.output)
