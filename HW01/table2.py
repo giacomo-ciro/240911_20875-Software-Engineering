@@ -55,7 +55,6 @@ def evaluate_boolean_expression(expr, variables):
                         break
 
             elif token in ('and', 'or', 'not'):
-                # Just add operators to the stack
                 stack.append(token)
             else:
                 # Add the variable or boolean constant

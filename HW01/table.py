@@ -63,6 +63,11 @@ def evaluate_boolean_expression(expr, variables):
 
             i += 1
 
+            if False in stack and 'and' in stack:
+                return False 
+            if True in stack and 'or' in stack:
+                return True
+
         # Now evaluate the expression in the stack (consider 'not', 'and', 'or')
         while 'not' in stack:
             idx = stack.index('not')
