@@ -282,20 +282,20 @@ class Compiler():
         n = len(self.vars)
         
         for i in range(2**n):
-            if i%1e2 == 0: print(f'row{i:,}/{2**n:,}')
+            if i%1e6 == 0: print(f'row{i:,}/{2**n:,}')
             vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
             row = ' '
             valid_row = not show_ones
             for v in vars:
                 row += ' 1' if vars[v] == True else ' 0'
             row += '  '
-            cache = {}
+            # cache = {}
             for id in self.ids.keys():
-                cache[id] = self.ids[id].eval(vars)
+                vars[id] = self.ids[id].eval(vars)
                 if id in ids_to_show:
-                    row += ' 1' if cache[id] == True else ' 0'
+                    row += ' 1' if vars[id] == True else ' 0'
                     
-                    if cache[id] and (not valid_row):
+                    if vars[id] and (not valid_row):
                         valid_row = True
             # break
             if valid_row:
