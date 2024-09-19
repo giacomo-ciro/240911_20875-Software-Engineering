@@ -214,7 +214,7 @@ class Compiler():
                 if re_evaluate:
                     self._evaluate(verbose=verbose)     # evaluate all ids to avoid back-references problems
                     re_evaluate = False
-                # self._show(ids_to_show, show_ones=i[0] == 'show_ones')
+                self._show(ids_to_show, show_ones=i[0] == 'show_ones')
 
             # INVALID
             else:
@@ -239,7 +239,7 @@ class Compiler():
         for i in range(2**n):
             
             if verbose:
-                print(f"Evaluating row {i:,}/{2**n:,}")
+                if i%1e4==0: print(f"Evaluating row {i:,}/{2**n:,}")
             
             # generate all possible combinations of True/False, viewed as binary numbers monotonically increasing    
             variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]
