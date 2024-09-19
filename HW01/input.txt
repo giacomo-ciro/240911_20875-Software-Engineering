@@ -1,9 +1,0 @@
-# Declaring five variables: p, q, r, s, t
-var p q r;
-
-# Assigning complex expressions
-u = (p and q) or (not r);
-t = False;
-
-# Show the truth table for u, v, w, x, y
-show t;

@@ -21,6 +21,68 @@ def cast_list(input_list):
 
     return result
 
+def evaluate_expression(expr, row, cache):
+
+    def solve(expr):
+        
+        # Base case
+        if str(expr) in row:
+            return row[str(expr)]
+        elif str(expr) == 'False':
+            return False
+        elif str(expr) == 'True':
+            return True
+        elif str(expr) in cache:
+            return cache[str(expr)]
+        
+        # Short-circuit evaluation
+        for i in range(len(expr)):
+            
+            if isinstance(expr[i], list):
+                if str(expr[i]) in cache:
+                    expr[i] = cache[str(expr[i])]
+            elif expr[i] in row:
+                expr[i] = row[expr[i]]
+        
+        if ('and' in expr) and (False in expr):
+            # print('shortcut')
+            return False
+        elif ('or' in expr) and (True in expr):
+            # print('shortcut')
+            return True
+        
+        
+        # Recursion
+        while 'not' in expr:
+            ix = expr.index('not')
+            key = str(['not', expr[ix+1]])
+            cache[key] = not solve(expr[ix+1])
+            expr[ix:ix+2] = [cache[key]]
+
+        while 'and' in expr:
+            ix = expr.index('and')
+            key = str([expr[ix-1], 'and', expr[ix+1]])
+            a = solve(expr[ix-1])
+            if not a:
+                cache[key] = False
+                expr[ix-1:ix+2] = [cache[key]]
+            cache[key] = a and solve(expr[ix+1])
+            expr[ix-1:ix+2] = [cache[key]]
+        
+        while 'or' in expr:
+            ix = expr.index('or')
+            key = str([expr[ix-1], 'or', expr[ix+1]])
+            a = solve(expr[ix-1])
+            if a:
+                cache[key] = True
+                expr[ix-1:ix+2] = [cache[key]]
+            cache[key] = a or solve(expr[ix+1]) 
+            expr[ix-1:ix+2] = [cache[key]]   
+
+        return expr[0]  
+        
+    return solve(expr)
+
 
 class Compiler():
     
@@ -78,7 +140,7 @@ class Compiler():
             elif re.match(r'[()=;]', char):
                 if word:    # special char ends a word
                     tokens.append(word)
-                    word = []
+                    word = ''
                 tokens.append(char)
 
         if verbose:
@@ -86,7 +148,8 @@ class Compiler():
         return tokens
     
     def _split_instructions(self,
-                            tokens: list=None
+                            tokens: list=None,
+                            verbose: bool=None
                             )->list:
         """
         
@@ -99,6 +162,10 @@ class Compiler():
         Returns a list of instructions, each being a list of tokens.
         
         """
+        
+        if verbose:
+            print('Splitting instructions...')
+
         instructions = []
         buffer = []
         for t in tokens:
@@ -151,7 +218,7 @@ class Compiler():
                     
                     # validity of the instruction
                     for t in i[2:]:
-                        if (t in self.vars) or (t in self.ids) or (re.match(r'[()]', t)) or (t in ['and', 'or', 'not']):
+                        if (t in self.vars) or (t in self.ids) or (re.match(r'[()]', t)) or (t in ['and', 'or', 'not', 'True', 'False']):
                             continue
                         else:
                             raise Exception(f"Invalid token in assignment: '{t}'")
@@ -183,110 +250,13 @@ class Compiler():
         
         pass
     
-    
-    def evaluate_expression(self, expr, row, cache):
-        # print(expr)
-        def solve(expr):
-            
-            # Base case
-            if str(expr) in row:
-                return row[str(expr)]
-            elif str(expr) == 'False':
-                return False
-            elif str(expr) == 'True':
-                return True
-            elif str(expr) in cache:
-                return cache[str(expr)]
-            
-            # Short-circuit evaluation
-            for i in range(len(expr)):
-                
-                if isinstance(expr[i], list):
-                    if str(expr[i]) in cache:
-                        expr[i] = cache[str(expr[i])]
-                elif expr[i] in row:
-                    expr[i] = row[expr[i]]
-            
-            if ('and' in expr) and (False in expr):
-                # print('shortcut')
-                return False
-            elif ('or' in expr) and (True in expr):
-                # print('shortcut')
-                return True
-            
-            
-            
-            # Recursion
-            while 'not' in expr:
-                ix = expr.index('not')
-                key = str(['not', expr[ix+1]])
-                cache[key] = not solve(expr[ix+1])
-                expr[ix:ix+2] = [cache[key]]
-
-            while 'and' in expr:
-                ix = expr.index('and')
-                key = str([expr[ix-1], 'and', expr[ix+1]])
-                a = solve(expr[ix-1])
-                if not a:
-                    cache[key] = False
-                    expr[ix-1:ix+2] = [cache[key]]
-                cache[key] = a and solve(expr[ix+1])
-                expr[ix-1:ix+2] = [cache[key]]
-            
-            while 'or' in expr:
-                ix = expr.index('or')
-                key = str([expr[ix-1], 'or', expr[ix+1]])
-                a = solve(expr[ix-1])
-                if a:
-                    cache[key] = True
-                    expr[ix-1:ix+2] = [cache[key]]
-                cache[key] = a or solve(expr[ix+1]) 
-                expr[ix-1:ix+2] = [cache[key]]   
-
-            return expr[0]
-        
-        return solve(expr)
-
-    def _evaluate(self,
-                  verbose: bool=False,
-                  )->None:
-        """
-        
-        Create the truth table with all identifiers in self.ids and all variables in self.vars.
-        The truth table is represented as a list of dictionaries, each representing one row.
-        It is stored in self.table.
-        
-        """
-        vars = self.vars
-        n = len(vars)
-        
-        for i in range(2**n):
-            
-            if verbose:
-                if i%1e6==0: print(f"Evaluating row {i:,}/{2**n:,}")
-            
-            # generate all possible combinations of True/False, viewed as binary numbers monotonically increasing    
-            variables_truth_values = [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]
-            row = dict(zip(vars, variables_truth_values))
-
-            for id in self.ids.keys():
-                # if verbose:
-                #     print(f"    Evaluating {id}")
-                cache = {}
-                # print(self.ids)
-                self.evaluate_expression(self.ids[id], row, cache)
-            
-            # print(row)
-        
-        return
-    
     def _show(self,
               ids_to_show: list=None,
               show_ones: bool=False
               )->None:
         """
         
-        Shows the truth table for a list of identifiers.
+        Evaluate the truth table for a list of identifiers and prints it.
 
         ids_to_show:
             <list>:
@@ -296,26 +266,33 @@ class Compiler():
                 whether to show only rows where at least one identifier takes a value of 1.
         
         """
-        return 
-        valid_row = not show_ones
-        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
-        for row in self.table:
-            current_row = ' '
-            for var in self.vars:
-                current_row += ' 1' if row[var] else ' 0'
-            current_row += '  '
-            for id in ids_to_show:
-                if id not in row.keys():
-                    raise Exception(f"Unknown identifier '{id}'")
-                current_row += ' 1' if row[id] else ' 0'
-                if row[id]:
-                    valid_row = True
-            if valid_row:
-                output += current_row + '\n'
-                valid_row = False if show_ones else True
         
-        self.output += output
-        return output
+        
+        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
+        
+        n = len(self.vars)
+        
+        for i in range(2**n):
+            if i%1e4 == 0: print(f'row{i:,}/{2**n:,}')
+            vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
+            row = ' '
+            valid_row = not show_ones
+            for v in vars:
+                row += ' 1' if vars[v] == True else ' 0'
+            row += '  '
+            cache = {}
+            for id in self.ids.keys():
+                cache[id] = evaluate_expression(self.ids[id].copy(), vars, cache)
+                if id in ids_to_show:
+                    row += ' 1' if cache[id] == True else ' 0'
+                    
+                    if cache[id] and (not valid_row):
+                        valid_row = True
+            # break
+            if valid_row:
+                print(row)
+
+        return
         
     def compile(self,
                 f,
