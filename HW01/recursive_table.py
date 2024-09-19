@@ -1,6 +1,14 @@
 import sys
 import re
 
+def check_valid(expr):
+    if ('or' in expr) and ('not' in expr):
+            raise Exception(f'Conflicts of operators in <{expr}>')
+    if ('and' in expr) and ('not' in expr):
+            raise Exception(f'Conflicts of operators in <{expr}>')
+    if ('and' in expr) and ('or' in expr):
+            raise Exception(f'Conflicts of operators in <{expr}>')
+    return True
 
 def cast_list(input_list):
     stack = []
@@ -9,22 +17,27 @@ def cast_list(input_list):
 
     for item in input_list:
         if item == '(':
+            check_valid(result)
             stack.append(result)
             result = []
         elif item == ')':
             if stack:
+                check_valid(result)
                 temp = result
                 result = stack.pop()
                 result.append(temp)
         else:
             result.append(item)
-
+    
+    # check validity
+    
+    check_valid(result)
     return result
 
 def evaluate_expression(expr, row, cache):
 
     def solve(expr):
-        
+
         # Base case
         if str(expr) in row:
             return row[str(expr)]
@@ -37,7 +50,6 @@ def evaluate_expression(expr, row, cache):
         
         # Short-circuit evaluation
         for i in range(len(expr)):
-            
             if isinstance(expr[i], list):
                 if str(expr[i]) in cache:
                     expr[i] = cache[str(expr[i])]
@@ -222,7 +234,10 @@ class Compiler():
                             continue
                         else:
                             raise Exception(f"Invalid token in assignment: '{t}'")
-                    
+                    # if ('and' in i) and ('or' in i):
+                    #     raise Exception(f"{i} contains both OR and AND")
+                    # if ('not' in i) and (('and' in i) or ('or') in i):
+                    #     raise Exception(f"{i} contains both NOT and OR/AND")
                     self.ids[i[0]] = cast_list(i[2:])
                 else:
                     raise Exception(f"{i[0]} already exists.")
@@ -273,7 +288,7 @@ class Compiler():
         n = len(self.vars)
         
         for i in range(2**n):
-            if i%1e4 == 0: print(f'row{i:,}/{2**n:,}')
+            if i%1e2 == 0: print(f'row{i:,}/{2**n:,}')
             vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
             row = ' '
             valid_row = not show_ones

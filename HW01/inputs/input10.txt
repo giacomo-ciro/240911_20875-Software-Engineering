@@ -4,8 +4,8 @@ var v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;
 # Assigning complex Boolean expressions
 e1 = (v1 and v2) or (not v3);
 e2 = (v4 or v5) and (not (v6 or v7));
-e3 = (v8 and v9 and v10) or (v1 and not v2);
-e4 = not (v3 or (v4 and v5)) and (v6 or v7);
+e3 = (v8 and v9 and v10) or (v1 and (not v2));
+e4 = (not (v3 or (v4 and v5))) and (v6 or v7);
 e5 = (v8 and v9) or (not v10);
 
 # More complex nested expressions
