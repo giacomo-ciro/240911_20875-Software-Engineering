@@ -78,6 +78,11 @@ class Node:
     def __repr__(self) -> str:
         return f'<Node> \'{self.value}\' with {len(self.children)} children'
 
+    def len(self):
+        if not self.children:
+            return 1
+        return 1 + min([child.len() for child in self.children])
+
 def build_tree(expr):
     
     if isinstance(expr, list):
@@ -293,12 +298,13 @@ class Compiler():
             row += '  '
             # cache = {}
             for id in self.ids.keys():
-                vars[id] = self.ids[id].eval(vars)
-                if id in ids_to_show:
-                    row += ' 1' if vars[id] == True else ' 0'
+                print(f'Length of {id}: {self.ids[id].len()}')
+                # vars[id] = self.ids[id].eval(vars)
+                # if id in ids_to_show:
+                #     row += ' 1' if vars[id] == True else ' 0'
                     
-                    if vars[id] and (not valid_row):
-                        valid_row = True
+                #     if vars[id] and (not valid_row):
+                #         valid_row = True
             # break
             if valid_row:
                 print(row)
