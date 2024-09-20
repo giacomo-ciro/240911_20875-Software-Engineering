@@ -6,6 +6,7 @@
 
 import sys
 import re
+from itertools import product
 
 def check_valid(expr):
     if ('or' in expr) and ('not' in expr):
@@ -41,36 +42,34 @@ def cast_list(input_list):
     return result
 
 class Node:
-    def __init__(self, value=None):
+    def __init__(self,
+                 value=None,
+                 children=None):
         self.value = value
-        self.children = []
+        self.children = children if children else []
     
     def eval(self, variables):
         
         if self.value == 'and':
-            out = self.children[0].eval(variables)
             for child in self.children:
-                out = out and child.eval(variables)
-                if out == False:
+                if not child.eval(variables):
                     return False
-            return out
+            return True
         
         elif self.value == 'or':
-            out = self.children[0].eval(variables)
             for child in self.children:
-                out = out or child.eval(variables)
-                if out == True:
+                if child.eval(variables):
                     return True
-            return out
+            return False
         
         elif self.value == 'not':
-            return not self.children[0]
+            return not self.children[0].eval(variables)
         
-        # elif self.value == 'True':
-        #     return True
+        elif self.value == 'True':
+            return True
         
-        # elif self.value == 'False':
-        #     return False
+        elif self.value == 'False':
+            return False
         
         else:
             return variables[self.value]
@@ -78,23 +77,45 @@ class Node:
     def __repr__(self) -> str:
         return f'<Node> \'{self.value}\' with {len(self.children)} children'
 
-    def len(self):
+    def __len__(self):
         if not self.children:
             return 1
         return 1 + min([child.len() for child in self.children])
 
-def build_tree(expr):
+def build_tree_recursively(expr):
     
-    if isinstance(expr, list):
-        node = Node()
-        for i in range(len(expr)):
-            if expr[i] in ('not', 'and', 'or'):
-                node.value = expr[i]
+    def build_tree(expr):
+        children = []
+        node_type = None
+        i = 0
+        while i < len(expr):
+            token = expr[i]
+            
+            if token == '(':
+                # Find the matching closing parenthesis
+                open_parens = 1
+                for j in range(i + 1, len(expr)):
+                    if expr[j] == '(':
+                        open_parens += 1
+                    elif expr[j] == ')':
+                        open_parens -= 1
+                    if open_parens == 0:
+                        # Solve the sub-expr within the parentheses
+                        node = build_tree(expr[i + 1:j])
+                        children.append(node)
+                        i = j  # Move the index to after the closing ')'
+                        break
+            
+            elif token in ('not', 'and', 'or'):
+                node_type = token if node_type is None else node_type
             else:
-                node.children.append(build_tree(expr[i]))
+                children.append(Node(token))
+
+            i += 1
+        node = Node(node_type, children)
         return node
-    else:
-        return Node(expr)
+    
+    return build_tree(expr)
 
 class Compiler():
     
@@ -213,7 +234,6 @@ class Compiler():
 
             # DECLARATION -> store in self.vars
             if i[0] == 'var':
-                re_evaluate = True
                 if verbose:
                     print(f'Declaration: {i}')
                 for t in i[1:]:
@@ -234,12 +254,7 @@ class Compiler():
                             continue
                         else:
                             raise Exception(f"Invalid token in assignment: '{t}'")
-                    # if ('and' in i) and ('or' in i):
-                    #     raise Exception(f"{i} contains both OR and AND")
-                    # if ('not' in i) and (('and' in i) or ('or') in i):
-                    #     raise Exception(f"{i} contains both NOT and OR/AND")
-                    self.ids[i[0]] = cast_list(i[2:])
-                    self.ids[i[0]] = build_tree(self.ids[i[0]])
+                    self.ids[i[0]] = build_tree_recursively(i[2:])
                 else:
                     raise Exception(f"{i[0]} already exists.")
             
@@ -254,9 +269,6 @@ class Compiler():
                 for id in ids_to_show:
                     if id not in self.ids.keys():
                         raise Exception(f"Unknown identifier '{id}'")
-                # if re_evaluate:
-                #     self._evaluate(verbose=verbose)     # evaluate all ids to avoid back-references problems
-                #     re_evaluate = False
                 
                 self._show(ids_to_show, show_ones= i[0] == 'show_ones')
 
@@ -286,11 +298,12 @@ class Compiler():
         
         print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
         
-        n = len(self.vars)
-        
-        for i in range(2**n):
-            if i%1e6 == 0: print(f'row{i:,}/{2**n:,}')
-            vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
+        vars_value = list(product([False, True], repeat=len(self.vars)))
+           
+        for i in range(len(vars_value)):
+            # if i%1e6 == 0: print(f'row{i:,}/{len(vars_value):,}')
+            # vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
+            vars = dict(zip(self.vars, vars_value[i]))
             row = ' '
             valid_row = not show_ones
             for v in vars:
@@ -298,13 +311,12 @@ class Compiler():
             row += '  '
             # cache = {}
             for id in self.ids.keys():
-                print(f'Length of {id}: {self.ids[id].len()}')
-                # vars[id] = self.ids[id].eval(vars)
-                # if id in ids_to_show:
-                #     row += ' 1' if vars[id] == True else ' 0'
+                vars[id] = self.ids[id].eval(vars)
+                if id in ids_to_show:
+                    row += ' 1' if vars[id] == True else ' 0'
                     
-                #     if vars[id] and (not valid_row):
-                #         valid_row = True
+                    if vars[id] and (not valid_row):
+                        valid_row = True
             # break
             if valid_row:
                 print(row)
