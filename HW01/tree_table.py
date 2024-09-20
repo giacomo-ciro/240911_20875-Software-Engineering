@@ -77,10 +77,10 @@ class Node:
     def __repr__(self) -> str:
         return f'<Node> \'{self.value}\' with {len(self.children)} children'
 
-    def __len__(self):
-        if not self.children:
-            return 1
-        return 1 + min([child.len() for child in self.children])
+    def depth(self):
+        if self.children == []:
+            return 0
+        return 1 + min(self.children, key=lambda x: x.depth()).depth()
 
 def build_tree_recursively(expr):
     
