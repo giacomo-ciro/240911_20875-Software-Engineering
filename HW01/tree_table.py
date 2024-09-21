@@ -1,9 +1,3 @@
-# TODO: 
-# 1. check correctness of evaluations
-# 2. retrieve node truth value also from cache and not only from vars
-# 3. use itertools.product to generate all possible combinations of variables
-# 4. check correctness of evaluations (it's wrong as of now!!)
-
 import sys
 import re
 from itertools import product
