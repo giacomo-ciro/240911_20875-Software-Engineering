@@ -8,8 +8,8 @@ import sys
 import re
 from itertools import product
 
-import time
-start_time = time.time()
+# import time
+# start_time = time.time()
 
 def check_valid(expr):
     if ('or' in expr) and ('not' in expr):
@@ -345,4 +345,4 @@ with open(sys.argv[1], 'r') as f:
     f = f.read()
     compiler.compile(f, verbose=False)
 
-print("--- %s seconds ---" % (time.time() - start_time))
+# print("--- %s seconds ---" % (time.time() - start_time))
