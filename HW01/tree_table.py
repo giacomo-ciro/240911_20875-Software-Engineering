@@ -17,47 +17,26 @@ def check_valid(expr):
             raise Exception(f'Conflicts of operators in <{expr}>')
     return True
 
-def cast_list(input_list):
-    stack = []
-    result = []
-    temp = []
-
-    for item in input_list:
-        if item == '(':
-            check_valid(result)
-            stack.append(result)
-            result = []
-        elif item == ')':
-            if stack:
-                check_valid(result)
-                temp = result
-                result = stack.pop()
-                result.append(temp)
-        else:
-            result.append(item)
-    
-    # check validity
-    
-    check_valid(result)
-    return result
-
 class Node:
     def __init__(self,
                  value=None,
                  children=None):
         self.value = value
         self.children = children if children else []
+        self._depth = None
     
     def eval(self, variables):
         
         if self.value == 'and':
-            for child in self.children:
+            for child in sorted(self.children, key=lambda x: x.depth()):
+            # for child in self.children:
                 if not child.eval(variables):
                     return False
             return True
         
         elif self.value == 'or':
-            for child in self.children:
+            for child in sorted(self.children, key=lambda x: x.depth()):
+            # for child in self.children:
                 if child.eval(variables):
                     return True
             return False
@@ -78,9 +57,9 @@ class Node:
         return f'<Node> \'{self.value}\' with {len(self.children)} children'
 
     def depth(self):
-        if self.children == []:
-            return 0
-        return 1 + min(self.children, key=lambda x: x.depth()).depth()
+        if self._depth is None:
+            self._depth = 0 if self.children == [] else 1 + min(self.children, key=lambda x: x.depth()).depth() 
+        return self._depth
 
 def build_tree_recursively(expr):
     
@@ -359,4 +338,4 @@ with open(sys.argv[1], 'r') as f:
 
     compiler = Compiler()    
     f = f.read()
-    compiler.compile(f, verbose=True)
+    compiler.compile(f, verbose=False)

@@ -5,4 +5,4 @@ var p q x y;
 u = p or (not p) or q or x or y;
 
 # Show the truth table for u, v, w, x, y
-show u;
+show_ones u;
