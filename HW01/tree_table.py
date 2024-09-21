@@ -8,6 +8,9 @@ import sys
 import re
 from itertools import product
 
+import time
+start_time = time.time()
+
 def check_valid(expr):
     if ('or' in expr) and ('not' in expr):
             raise Exception(f'Conflicts of operators in <{expr}>')
@@ -28,15 +31,15 @@ class Node:
     def eval(self, variables):
         
         if self.value == 'and':
-            for child in sorted(self.children, key=lambda x: x.depth()):
-            # for child in self.children:
+            # for child in sorted(self.children, key=lambda x: x.depth()):
+            for child in self.children:
                 if not child.eval(variables):
                     return False
             return True
         
         elif self.value == 'or':
-            for child in sorted(self.children, key=lambda x: x.depth()):
-            # for child in self.children:
+            # for child in sorted(self.children, key=lambda x: x.depth()):
+            for child in self.children:
                 if child.eval(variables):
                     return True
             return False
@@ -91,10 +94,12 @@ def build_tree_recursively(expr):
                 children.append(Node(token))
 
             i += 1
+        children = sorted(children, key=lambda x: x.depth())
         node = Node(node_type, children)
         return node
     
-    return build_tree(expr)
+    tree = build_tree(expr)
+    return tree
 
 class Compiler():
     
@@ -339,3 +344,5 @@ with open(sys.argv[1], 'r') as f:
     compiler = Compiler()    
     f = f.read()
     compiler.compile(f, verbose=False)
+
+print("--- %s seconds ---" % (time.time() - start_time))

@@ -346,3 +346,4 @@ with open(sys.argv[1], 'r') as f:
     compiler = Compiler()    
     f = f.read()
     compiler.compile(f, verbose=True)
+
