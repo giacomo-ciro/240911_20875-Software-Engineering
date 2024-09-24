@@ -5,14 +5,14 @@ from itertools import product
 # import time
 # start_time = time.time()
 
-def check_valid(expr):
-    if ('or' in expr) and ('not' in expr):
-            raise Exception(f'Conflicts of operators in <{expr}>')
-    if ('and' in expr) and ('not' in expr):
-            raise Exception(f'Conflicts of operators in <{expr}>')
-    if ('and' in expr) and ('or' in expr):
-            raise Exception(f'Conflicts of operators in <{expr}>')
-    return True
+# def check_valid(expr):
+#     if ('or' in expr) and ('not' in expr):
+#             raise Exception(f'Conflicts of operators in <{expr}>')
+#     if ('and' in expr) and ('not' in expr):
+#             raise Exception(f'Conflicts of operators in <{expr}>')
+#     if ('and' in expr) and ('or' in expr):
+#             raise Exception(f'Conflicts of operators in <{expr}>')
+#     return True
 
 class Node:
     def __init__(self,
@@ -83,6 +83,8 @@ def build_tree_recursively(expr):
                         break
             
             elif token in ('not', 'and', 'or'):
+                if (node_type is not None) and (node_type != token):
+                    raise Exception(f'Conflicts of operators in <{expr}>') 
                 node_type = token if node_type is None else node_type
             else:
                 children.append(Node(token))
@@ -142,10 +144,11 @@ class Compiler():
             elif re.match(r'[A-Za-z_0-9]', char) and word:
                 word += char
             
-            # BLANKS --> spaces, tabs, carriage, newlines mark the end of a word
-            elif re.match(r'[\s]', char) and word:  # [\s] == [\t\n\r' ']
-                tokens.append(word)
-                word = ''
+            # BLANKS --> spaces, tabs, carriage, newlines mark the end of a word or are ingored
+            elif re.match(r'[\s]', char):   # [\s] == [\t\n\r' ']
+                if word:  
+                    tokens.append(word)
+                    word = ''
             
             # SPECIAL chars
             elif re.match(r'[()=;]', char):
@@ -153,6 +156,12 @@ class Compiler():
                     tokens.append(word)
                     word = ''
                 tokens.append(char)
+            
+            # Anything else
+            else:
+                print('here;',char, '<-')
+                raise Exception(f'Invalid character: {char}')
+        
 
         if verbose:
             print(f'Tokenized Input:\n\n{tokens}\n\n')
@@ -177,6 +186,7 @@ class Compiler():
         if verbose:
             print('Splitting instructions...')
 
+        # SPLIT the tokens into instructions delimited by ';'
         instructions = []
         buffer = []
         for t in tokens:
@@ -186,6 +196,55 @@ class Compiler():
             else:
                 buffer.append(t)
         
+        return instructions
+    
+    def _check_instructions(self,
+                            instructions: list=None,
+                            verbose: bool=False
+                            )->list:
+        """
+        
+        Checks the validity of a list of instructions.
+        
+        """
+
+        declared_vars = []
+        declared_ids = []
+        for instr in instructions:
+            if verbose:
+                print(instr)
+            # Instruction too short
+            if len(instr) < 2:
+                raise Exception(f'Invalid instruction: {instr}')
+            
+            # DECLARATION
+            elif instr[0] == 'var':
+                for t in instr[1:]:
+                    if (t in declared_vars):
+                        raise Exception(f"Variable already declared: {t}")
+                    declared_vars.append(t)
+            
+            # ASSIGNMENT
+            elif (len(instr) >= 3) and (instr[1] == '='):
+                if (instr[0] in declared_vars) or (instr[0] in declared_ids):
+                    print(instr)
+                    raise Exception(f" already declared: {instr[0]}")
+                for t in instr[2:]:
+                    if (t in declared_vars) or (t in declared_ids) or (re.match(r'[()]', t)) or (t in ['and', 'or', 'not', 'True', 'False']):
+                        continue
+                    else:
+                        raise Exception(f"Invalid token in assignment: {t}")
+                declared_ids.append(t)
+            
+            # SHOW
+            elif (instr[0] == 'show') or (instr[0] == 'show_ones'):
+                for t in instr[1:]:
+                    if t not in declared_ids:
+                        raise Exception(f"Unknown identifier: {t}")
+            
+            else:
+                raise Exception(f'Invalid instruction: {instr}')
+
         return instructions
     
     def _execute_instructions(self,
@@ -225,13 +284,6 @@ class Compiler():
                 if verbose:
                     print(f'Assignment: {i}')
                 if (i[0] not in self.vars) and (i[0] not in self.ids):
-                    
-                    # validity of the instruction
-                    for t in i[2:]:
-                        if (t in self.vars) or (t in self.ids) or (re.match(r'[()]', t)) or (t in ['and', 'or', 'not', 'True', 'False']):
-                            continue
-                        else:
-                            raise Exception(f"Invalid token in assignment: '{t}'")
                     self.ids[i[0]] = build_tree_recursively(i[2:])
                 else:
                     raise Exception(f"{i[0]} already exists.")
@@ -249,12 +301,10 @@ class Compiler():
                         raise Exception(f"Unknown identifier '{id}'")
                 
                 self._show(ids_to_show, show_ones= i[0] == 'show_ones')
-
+            
             # INVALID
-            else:
-                raise Exception(f"{i} is an invalid instruction")
-        
-        pass
+            else:   
+                raise Exception(f"Invalid instruction: {i}")
     
     def _show(self,
               ids_to_show: list=None,
@@ -326,6 +376,9 @@ class Compiler():
                                 verbose=verbose
                                 )
         instructions = self._split_instructions(tokens,
+                                                verbose=verbose
+                                                )
+        instructions = self._check_instructions(instructions,
                                                 verbose=verbose
                                                 )
         self._execute_instructions(instructions,
