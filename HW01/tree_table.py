@@ -2,17 +2,71 @@ import sys
 import re
 from itertools import product
 
-# import time
-# start_time = time.time()
+def check_valid_recursively(expr, declared_vars, declared_ids):
+    """
+    
+    Check the validity of an expression by iteratively check sub-expressions.
+    
+    """
+    def check_valid(expr, declared_vars, declared_ids):
 
-# def check_valid(expr):
-#     if ('or' in expr) and ('not' in expr):
-#             raise Exception(f'Conflicts of operators in <{expr}>')
-#     if ('and' in expr) and ('not' in expr):
-#             raise Exception(f'Conflicts of operators in <{expr}>')
-#     if ('and' in expr) and ('or' in expr):
-#             raise Exception(f'Conflicts of operators in <{expr}>')
-#     return True
+        i = 0
+        running = -1   # 0: var, 1: and/or, 2: not
+        while i < len(expr):
+            token = expr[i]
+
+            # OPEN parens --> look for matching closing parens
+            if token == '(':
+                if running == 0:
+                    print(i)
+                    raise Exception(f'Invalid assignment {expr}')
+                open_parens = 1
+                for j in range(i + 1, len(expr)):
+                    if expr[j] == '(':
+                        open_parens += 1
+                    elif expr[j] == ')':
+                        open_parens -= 1
+                    if open_parens == 0:
+                        # Solve the sub-expr within the parentheses
+                        if expr[i + 1:j] == []:
+                            raise Exception(f'Empty parentheses at position {i} in <{expr}>')
+                        check_valid(expr[i + 1:j], declared_vars, declared_ids)
+                        running = 0 # subexpr as if it were a variable
+                        i = j  # Move the index to after the closing ')'
+                        break
+            
+            # CLOSING parens
+            elif token == ')':
+                raise Exception(f'Unmatched closing parenthesis at position {i} in <{expr}>')
+            
+            # IDENTIFIER / VARIABLE
+            elif (expr[i] in declared_vars) or (expr[i] in declared_ids):
+                if running == 0:
+                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                running = 0
+            
+            # NOT
+            elif token == 'not':
+                if running != -1:
+                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                running = 2
+            
+            # AND / OR
+            elif token in ('and', 'or'):
+                if running != 0:
+                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                running = 1
+            
+            else:
+                raise Exception(f'Invalid token {token} at position {i} in <{expr}>')
+                
+            i += 1
+        if running > 0:
+            raise Exception(f'Invalid assignment {expr}')
+        
+        return 
+    
+    return check_valid(expr, declared_vars, declared_ids)
 
 class Node:
     def __init__(self,
@@ -25,20 +79,24 @@ class Node:
     def eval(self, variables):
         
         if self.value == 'and':
-            # for child in sorted(self.children, key=lambda x: x.depth()):
+            if len(self.children) < 2:
+                raise Exception(f'Invalid number of children in {self}')
             for child in self.children:
                 if not child.eval(variables):
                     return False
             return True
         
         elif self.value == 'or':
-            # for child in sorted(self.children, key=lambda x: x.depth()):
+            if len(self.children) < 2:
+                raise Exception(f'Invalid number of children in {self}')
             for child in self.children:
                 if child.eval(variables):
                     return True
             return False
         
         elif self.value == 'not':
+            if len(self.children) < 1:
+                raise Exception(f'Invalid number of children in {self}')
             return not self.children[0].eval(variables)
         
         elif self.value == 'True':
@@ -61,6 +119,7 @@ class Node:
 def build_tree_recursively(expr):
     
     def build_tree(expr):
+
         children = []
         node_type = None
         i = 0
@@ -77,21 +136,27 @@ def build_tree_recursively(expr):
                         open_parens -= 1
                     if open_parens == 0:
                         # Solve the sub-expr within the parentheses
+                        if expr[i + 1:j] == []:
+                            raise Exception(f'Empty parentheses at position {i} in <{expr}>')
                         node = build_tree(expr[i + 1:j])
                         children.append(node)
                         i = j  # Move the index to after the closing ')'
                         break
+            elif token == ')':
+                raise Exception(f'Unmatched closing parenthesis at position {i} in <{expr}>')
             
             elif token in ('not', 'and', 'or'):
+                print(node_type)
                 if (node_type is not None) and (node_type != token):
                     raise Exception(f'Conflicts of operators in <{expr}>') 
                 node_type = token if node_type is None else node_type
             else:
                 children.append(Node(token))
-
             i += 1
+        
         children = sorted(children, key=lambda x: x.depth())
         node = Node(node_type, children)
+        
         return node
     
     tree = build_tree(expr)
@@ -211,8 +276,10 @@ class Compiler():
         declared_vars = []
         declared_ids = []
         for instr in instructions:
+            
             if verbose:
                 print(instr)
+            
             # Instruction too short
             if len(instr) < 2:
                 raise Exception(f'Invalid instruction: {instr}')
@@ -222,6 +289,8 @@ class Compiler():
                 for t in instr[1:]:
                     if (t in declared_vars):
                         raise Exception(f"Variable already declared: {t}")
+                    if (t in ('(', ')', 'and', 'or', 'not', 'True', 'False')):
+                        raise Exception(f"Invalid variable: {t}")
                     declared_vars.append(t)
             
             # ASSIGNMENT
@@ -229,17 +298,13 @@ class Compiler():
                 if (instr[0] in declared_vars) or (instr[0] in declared_ids):
                     print(instr)
                     raise Exception(f" already declared: {instr[0]}")
-                for t in instr[2:]:
-                    if (t in declared_vars) or (t in declared_ids) or (re.match(r'[()]', t)) or (t in ['and', 'or', 'not', 'True', 'False']):
-                        continue
-                    else:
-                        raise Exception(f"Invalid token in assignment: {t}")
-                declared_ids.append(t)
+                check_valid_recursively(instr[2:], declared_vars, declared_ids)
+                declared_ids.append(instr[0])
             
             # SHOW
             elif (instr[0] == 'show') or (instr[0] == 'show_ones'):
                 for t in instr[1:]:
-                    if t not in declared_ids:
+                    if (t not in declared_ids) or (t in ('(', ')', 'and', 'or', 'not', 'True', 'False')):
                         raise Exception(f"Unknown identifier: {t}")
             
             else:
