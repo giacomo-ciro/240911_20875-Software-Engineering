@@ -40,7 +40,7 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
                 raise Exception(f'Unmatched closing parenthesis at position {i} in <{expr}>')
             
             # IDENTIFIER / VARIABLE
-            elif (expr[i] in declared_vars) or (expr[i] in declared_ids):
+            elif (expr[i] in declared_vars) or (expr[i] in declared_ids) or (expr[i] in ('True', 'False')):
                 if running == 0:
                     raise Exception(f'Invalid syntax at position {i} in <{expr}>')
                 running = 0
