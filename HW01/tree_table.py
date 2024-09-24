@@ -12,6 +12,7 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
 
         i = 0
         running = -1   # 0: var, 1: and/or, 2: not
+        clause = None    # not and or
         while i < len(expr):
             token = expr[i]
 
@@ -49,13 +50,19 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
             elif token == 'not':
                 if running != -1:
                     raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                if (clause is not None) and (clause != token):
+                    raise Exception(f'Conflicts of operators in <{expr}>') 
+                clause = token
                 running = 2
             
             # AND / OR
             elif token in ('and', 'or'):
                 if running != 0:
                     raise Exception(f'Invalid syntax at position {i} in <{expr}>')
-                running = 1
+                if (clause is not None) and (clause != token):
+                    raise Exception(f'Conflicts of operators in <{expr}>')
+                clause = token
+                running = 1 
             
             else:
                 raise Exception(f'Invalid token {token} at position {i} in <{expr}>')
