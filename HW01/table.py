@@ -11,7 +11,7 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
     def check_valid(expr, declared_vars, declared_ids):
 
         i = 0
-        running = -1   # 0: var, 1: and/or, 2: not
+        running = -1   # -1:begin expr, 0: var, 1: and/or, 2: not
         clause = None    # not and or
         while i < len(expr):
             token = expr[i]
@@ -31,8 +31,10 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
                             raise Exception(f'Empty parentheses at position {i} in <{expr}>')
                         check_valid(expr[i + 1:j], declared_vars, declared_ids)
                         running = 0 # subexpr as if it were a variable
-                        i = j  # Move the index to after the closing ')'
+                        i = j  # Move the index to the closing ')'
                         break
+                if open_parens > 0:
+                    raise Exception(f'Unbalanced parentheses in <{expr}>')
             
             # CLOSING parens
             elif token == ')':
@@ -82,7 +84,7 @@ class Node:
         self._depth = None
     
     def eval(self, variables):
-        
+
         if self.value == 'and':
             if len(self.children) < 2:
                 raise Exception(f'Invalid number of children in {self}')
@@ -159,7 +161,10 @@ def build_tree_recursively(expr):
             i += 1
         
         children = sorted(children, key=lambda x: x.depth())
-        node = Node(node_type, children)
+        if node_type is not None:
+            node = Node(node_type, children)
+        else:
+            node = children[0]
         
         return node
     
@@ -290,10 +295,10 @@ class Compiler():
             # DECLARATION
             elif instr[0] == 'var':
                 for t in instr[1:]:
-                    if (t in declared_vars):
+                    if (t in declared_vars) or (t in declared_ids):
                         raise Exception(f"Variable already declared: {t}")
-                    if (t in ('(', ')', 'and', 'or', 'not', 'True', 'False')):
-                        raise Exception(f"Invalid variable: {t}")
+                    if (t in ('(', ')', 'and', 'or', 'not', 'True', 'False', 'var', 'show', 'show_ones', '=')):
+                        raise Exception(f"Invalid variable name: {t}")
                     declared_vars.append(t)
                     if len(declared_vars) > 64:
                         raise Exception(f"Too many variables declared: {declared_vars}")
@@ -376,7 +381,7 @@ class Compiler():
               )->None:
         """
         
-        Evaluate the truth table for a list of identifiers and prints it.
+        Evaluates the truth table for a list of identifiers and prints it.
 
         ids_to_show:
             <list>:

@@ -2,7 +2,7 @@
 var p q x y;
 
 # Assigning complex expressions
-u = p or (not q) or True or x or y ;
+u = p or (not q) or x or y;
 
 # Show the truth table for u, v, w, x, y
-show_ones p;
+show u;
