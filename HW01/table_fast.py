@@ -354,7 +354,6 @@ class Compiler():
             
             # ASSIGNMENT -> store in self.ids as {'z': ['x', 'and', 'y']}
             elif i[1] == '=':
-                # re_evaluate = True  # re-evaluate all ids after an assignment
                 if verbose:
                     print(f'Assignment: {i}')
                 if (i[0] not in self.vars) and (i[0] not in self.ids):
@@ -391,7 +390,14 @@ class Compiler():
                 whether to show only rows where at least one identifier takes a value of 1.
         
         """
-        
+
+        # Skip rows where at least one of the variables is False and operator is AND
+        if len(ids_to_show) == 1 and self.ids[ids_to_show[0]].value == 'and':
+            must_be_true = []
+            id = ids_to_show[0]
+            for child in self.ids[ids_to_show[0]].children:
+                if child.value in self.vars:
+                    must_be_true.append(child.value)
         
         print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
         
@@ -399,16 +405,23 @@ class Compiler():
         n = len(self.vars)   
         i = 0
         while i < 2**n:
-            # if i%1e6 == 0: print(f'row{i:,}/{len(vars_value):,}')
-            # vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
             vars = dict(zip(self.vars, vars_value[i]))
             row = ' '
             valid_row = not show_ones
             for v in vars:
                 row += ' 1' if vars[v] == True else ' 0'
             row += '  '
-            # cache = {}
 
+            # Row skipping implemented for simple case only
+            if show_ones and len(ids_to_show) == 1:
+                skip = False
+                for v in must_be_true:
+                    if not vars[v]:
+                        skip = True
+                        break
+                if skip:
+                    i += 1
+                    continue
             # Evaluate the row for all ids
             for id in self.ids.keys():
                 vars[id] = self.ids[id].eval(vars)
@@ -467,5 +480,3 @@ with open(sys.argv[1], 'r') as f:
     compiler = Compiler()    
     f = f.read()
     compiler.compile(f, verbose=False)
-
-# print("--- %s seconds ---" % (time.time() - start_time))
