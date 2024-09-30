@@ -393,7 +393,7 @@ class Compiler():
         """
         
         
-        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
+        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
         
         vars_value = list(product([False, True], repeat=len(self.vars)))
         n = len(self.vars)   

@@ -2,6 +2,7 @@
 var p q x y;
 
 # Assigning complex expressions
+show x;
 u = p and (not q) and x and y;
 
 # Show the truth table for u, v, w, x, y
