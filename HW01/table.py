@@ -399,8 +399,6 @@ class Compiler():
         n = len(self.vars)   
         i = 0
         while i < 2**n:
-            # if i%1e6 == 0: print(f'row{i:,}/{len(vars_value):,}')
-            # vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
             vars = dict(zip(self.vars, vars_value[i]))
             row = ' '
             valid_row = not show_ones
@@ -467,5 +465,3 @@ with open(sys.argv[1], 'r') as f:
     compiler = Compiler()    
     f = f.read()
     compiler.compile(f, verbose=False)
-
-# print("--- %s seconds ---" % (time.time() - start_time))
