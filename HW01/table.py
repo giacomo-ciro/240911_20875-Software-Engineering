@@ -396,8 +396,9 @@ class Compiler():
         print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
         
         vars_value = list(product([False, True], repeat=len(self.vars)))
-           
-        for i in range(len(vars_value)):
+        n = len(self.vars)   
+        i = 0
+        while i < 2**n:
             # if i%1e6 == 0: print(f'row{i:,}/{len(vars_value):,}')
             # vars = dict(zip(self.vars, [ True if (i & (1 << j)) != 0 else False for j in range(n-1, -1, -1)]))
             vars = dict(zip(self.vars, vars_value[i]))
@@ -423,7 +424,7 @@ class Compiler():
             # After completing the row
             if valid_row:
                 print(row)
-
+            i += 1
         return
         
     def compile(self,
