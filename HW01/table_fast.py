@@ -392,8 +392,8 @@ class Compiler():
         """
 
         # Skip rows where at least one of the variables is False and operator is AND
-        if len(ids_to_show) == 1 and self.ids[ids_to_show[0]].value == 'and':
-            must_be_true = []
+        must_be_true = []
+        if len(ids_to_show) == 1 and (ids_to_show[0] in self.ids) and (self.ids[ids_to_show[0]].value == 'and'):
             id = ids_to_show[0]
             for child in self.ids[ids_to_show[0]].children:
                 if child.value in self.vars:
@@ -413,7 +413,7 @@ class Compiler():
             row += '  '
 
             # Row skipping implemented for simple case only
-            if show_ones and len(ids_to_show) == 1:
+            if must_be_true != []:
                 skip = False
                 for v in must_be_true:
                     if not vars[v]:
