@@ -370,39 +370,79 @@ class Compiler():
             
 
             # SHOW
-            elif i[0] == 'show' or i[0] == 'show_ones':
+            elif i[0] == 'show':
                 if verbose:
                     print(f'Show: {i}')
                 ids_to_show = i[1:]
-                
-                self._show(ids_to_show, show_ones= i[0] == 'show_ones')
+                self._show(ids_to_show)
+            
+            # SHOW ONES
+            elif i[0] == 'show_ones':
+                if verbose:
+                    print(f'Show_ones: {i}')
+                ids_to_show = i[1:]
+                self._show_ones(ids_to_show)
             
             # INVALID
             else:   
                 raise ValueError(f"Invalid instruction: {i}")
     
-    def evaluate_rows_dynamically(self, root, vars, results, idx):
+    def evaluate_rows_dynamically(self, vars, results, idx, ids_to_show):
+        
+        # When all variables are assigned a truth value
         if idx == len(self.vars):
-            if root.eval(vars):
-                results.append(vars.copy())
-                print(results)
+            # If at least one id to be show is true, append the row to the results
+            for id in ids_to_show: 
+                if self.ids[id].eval(vars):
+                    results.append(vars.copy())
+                    return
             return
 
         vars[self.vars[idx]] = False
-        # print(vars)
-        # print(root.eval(vars))
-        if root.eval(vars) != False:
-            self.evaluate_rows_dynamically(root, vars, results, idx + 1)
+        go_further = False
+        for id in self.ids:
+            if self.ids[id].eval(vars) != False:
+                go_further = True
+        if go_further:
+            self.evaluate_rows_dynamically(vars, results, idx + 1, ids_to_show)
 
         vars[self.vars[idx]] = True
-        # print(vars)
-        # print(root.eval(vars))
-        if root.eval(vars) != False:
-            self.evaluate_rows_dynamically(root, vars, results, idx + 1)
+        for id in self.ids:
+            if self.ids[id].eval(vars) != False:
+                self.evaluate_rows_dynamically(vars, results, idx + 1, ids_to_show)
+                break
+
+    def _show_ones(self,
+              ids_to_show: list=None,
+              )->None:
+        """
+        
+        Evaluates the truth table for a list of identifiers and prints only those containing ones.
+
+        ids_to_show:
+            <list>:
+                a list of identifiers to show in the truth table together with all declared vars
+        
+        """
+        
+        
+        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
+
+        rows = []
+        vars = {v:None for v in self.vars}
+        self.evaluate_rows_dynamically(vars, rows, 0, ids_to_show)  # store in results all rows such that at least one id to show is True
+        
+        for row in rows:
+            tmp = ' '
+            for v in self.vars:
+                tmp += ' 1' if row[v] == True else ' 0'
+            tmp += '  '
+            for id in ids_to_show:
+                tmp += ' 1' if self.ids[id].eval(row) else ' 0'
+            print(tmp)
 
     def _show(self,
               ids_to_show: list=None,
-              show_ones: bool=False
               )->None:
         """
         
@@ -410,53 +450,35 @@ class Compiler():
 
         ids_to_show:
             <list>:
-                a list of identifiers to show in the truth table.
-        show_ones:
-            <bool>:
-                whether to show only rows where at least one identifier takes a value of 1.
+                a list of identifiers to show in the truth table together with all declared vars
         
         """
         
-        
         print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
-        
+
         vars_value = list(product([False, True], repeat=len(self.vars)))
         n = len(self.vars)   
         i = 0
+        
+        while i < 2**n:
+            vars = dict(zip(self.vars, vars_value[i]))
+            row = ' '
+            for v in vars:
+                row += ' 1' if vars[v] == True else ' 0'
+            row += '  '
+            # cache = {}
 
-        for id in self.ids:
-            idx = 0
-            root = self.ids[id]
-            results = []
-            vars = {v:None for v in self.vars}
-            self.evaluate_rows_dynamically(root, vars, results, idx)
-
-        # while i < 2**n:
-        #     vars = dict(zip(self.vars, vars_value[i]))
-        #     row = ' '
-        #     valid_row = not show_ones
-        #     for v in vars:
-        #         row += ' 1' if vars[v] == True else ' 0'
-        #     row += '  '
-        #     # cache = {}
-
-        #     # Evaluate the row for all ids
-        #     for id in self.ids.keys():
-        #         vars[id] = self.ids[id].eval(vars)
+            # Evaluate the row for all ids
+            for id in self.ids.keys():
+                vars[id] = self.ids[id].eval(vars)
             
-        #     # Print the ones requested
-        #     for id in ids_to_show:
-        #         row += ' 1' if vars[id] == True else ' 0'
-                
-        #         # if at least one id is True, the row is valid
-        #         if vars[id] and (not valid_row):
-        #             valid_row = True
+            # Print the ones requested
+            for id in ids_to_show:
+                row += ' 1' if vars[id] == True else ' 0'
             
-        #     # After completing the row
-        #     if valid_row:
-        #         print(row)
-        #     i += 1
-        # return
+            print(row)
+            i += 1
+        return
         
     def compile(self,
                 f,

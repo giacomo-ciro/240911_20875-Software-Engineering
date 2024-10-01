@@ -2,8 +2,8 @@
 var p q x y;
 
 # Assigning complex expressions
-show x;
-u = p and (not q) and x and y;
+u = t and (not q) and x and y;
+z = u and u;
 
 # Show the truth table for u, v, w, x, y
-show_ones u;
+show_ones u z;
