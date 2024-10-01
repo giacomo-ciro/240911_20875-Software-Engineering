@@ -18,7 +18,7 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
             # OPEN parens --> look for matching closing parens
             if token == '(':
                 if running == 0:
-                    raise Exception(f'Invalid assignment {expr}')
+                    raise ValueError(f'Invalid assignment {expr}')
                 open_parens = 1
                 for j in range(i + 1, len(expr)):
                     if expr[j] == '(':
@@ -28,48 +28,48 @@ def check_valid_recursively(expr, declared_vars, declared_ids):
                     if open_parens == 0:
                         # Solve the sub-expr within the parentheses
                         if expr[i + 1:j] == []:
-                            raise Exception(f'Empty parentheses at position {i} in <{expr}>')
+                            raise ValueError(f'Empty parentheses at position {i} in <{expr}>')
                         check_valid(expr[i + 1:j], declared_vars, declared_ids)
                         running = 0 # subexpr as if it were a variable
                         i = j  # Move the index to the closing ')'
                         break
                 if open_parens > 0:
-                    raise Exception(f'Unbalanced parentheses in <{expr}>')
+                    raise ValueError(f'Unbalanced parentheses in <{expr}>')
             
             # CLOSING parens
             elif token == ')':
-                raise Exception(f'Unmatched closing parenthesis at position {i} in <{expr}>')
+                raise ValueError(f'Unmatched closing parenthesis at position {i} in <{expr}>')
             
             # IDENTIFIER / VARIABLE
             elif (expr[i] in declared_vars) or (expr[i] in declared_ids) or (expr[i] in ('True', 'False')):
                 if running == 0:
-                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                    raise ValueError(f'Invalid syntax at position {i} in <{expr}>')
                 running = 0
             
             # NOT
             elif token == 'not':
                 if running != -1:
-                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                    raise ValueError(f'Invalid syntax at position {i} in <{expr}>')
                 if (clause is not None) and (clause != token):
-                    raise Exception(f'Conflicts of operators in <{expr}>') 
+                    raise ValueError(f'Conflicts of operators in <{expr}>') 
                 clause = token
                 running = 2
             
             # AND / OR
             elif token in ('and', 'or'):
                 if running != 0:
-                    raise Exception(f'Invalid syntax at position {i} in <{expr}>')
+                    raise ValueError(f'Invalid syntax at position {i} in <{expr}>')
                 if (clause is not None) and (clause != token):
-                    raise Exception(f'Conflicts of operators in <{expr}>')
+                    raise ValueError(f'Conflicts of operators in <{expr}>')
                 clause = token
                 running = 1 
             
             else:
-                raise Exception(f'Invalid token {token} at position {i} in <{expr}>')
+                raise ValueError(f'Invalid token {token} at position {i} in <{expr}>')
                 
             i += 1
         if running > 0:
-            raise Exception(f'Invalid assignment {expr}')
+            raise ValueError(f'Invalid assignment {expr}')
         
         return 
     
@@ -87,23 +87,29 @@ class Node:
 
         if self.value == 'and':
             if len(self.children) < 2:
-                raise Exception(f'Invalid number of children in {self}')
+                raise ValueError(f'Invalid number of children in {self}')
             for child in self.children:
+                if child.eval(variables) == None:
+                    return None
                 if not child.eval(variables):
                     return False
             return True
         
         elif self.value == 'or':
             if len(self.children) < 2:
-                raise Exception(f'Invalid number of children in {self}')
+                raise ValueError(f'Invalid number of children in {self}')
             for child in self.children:
+                if child.eval(variables) == None:
+                    return None
                 if child.eval(variables):
                     return True
             return False
         
         elif self.value == 'not':
             if len(self.children) < 1:
-                raise Exception(f'Invalid number of children in {self}')
+                raise ValueError(f'Invalid number of children in {self}')
+            if self.children[0].eval(variables) == None:
+                    return None
             return not self.children[0].eval(variables)
         
         elif self.value == 'True':
@@ -144,17 +150,17 @@ def build_tree_recursively(expr):
                     if open_parens == 0:
                         # Solve the sub-expr within the parentheses
                         if expr[i + 1:j] == []:
-                            raise Exception(f'Empty parentheses at position {i} in <{expr}>')
+                            raise ValueError(f'Empty parentheses at position {i} in <{expr}>')
                         node = build_tree(expr[i + 1:j])
                         children.append(node)
                         i = j  # Move the index to after the closing ')'
                         break
             elif token == ')':
-                raise Exception(f'Unmatched closing parenthesis at position {i} in <{expr}>')
+                raise ValueError(f'Unmatched closing parenthesis at position {i} in <{expr}>')
             
             elif token in ('not', 'and', 'or'):
                 if (node_type is not None) and (node_type != token):
-                    raise Exception(f'Conflicts of operators in <{expr}>') 
+                    raise ValueError(f'Conflicts of operators in <{expr}>') 
                 node_type = token if node_type is None else node_type
             else:
                 children.append(Node(token))
@@ -212,7 +218,7 @@ class Compiler():
             if re.match(r'[A-Za-z_]', char) and not word:   
                 word += char
             elif re.match(r'[0-9]', char) and not word:
-                raise Exception('Invalid word starting with a digit')
+                raise ValueError('Invalid word starting with a digit')
             
             # WORDS --> any sequence of (one or more) consecutive letters, digits, or underscores
             elif re.match(r'[A-Za-z_0-9]', char) and word:
@@ -233,7 +239,7 @@ class Compiler():
             
             # Anything else
             else:
-                raise Exception(f'Invalid character: {char}')
+                raise ValueError(f'Invalid character: {char}')
         
 
         if verbose:
@@ -290,23 +296,23 @@ class Compiler():
             
             # Instruction too short
             if len(instr) < 2:
-                raise Exception(f'Invalid instruction: {instr}')
+                raise ValueError(f'Invalid instruction: {instr}')
             
             # DECLARATION
             elif instr[0] == 'var':
                 for t in instr[1:]:
                     if (t in declared_vars) or (t in declared_ids):
-                        raise Exception(f"Variable already declared: {t}")
+                        raise ValueError(f"Variable already declared: {t}")
                     if (t in ('(', ')', 'and', 'or', 'not', 'True', 'False', 'var', 'show', 'show_ones', '=')):
-                        raise Exception(f"Invalid variable name: {t}")
+                        raise ValueError(f"Invalid variable name: {t}")
                     declared_vars.append(t)
                     if len(declared_vars) > 64:
-                        raise Exception(f"Too many variables declared: {declared_vars}")
+                        raise ValueError(f"Too many variables declared: {declared_vars}")
             
             # ASSIGNMENT
             elif (len(instr) >= 3) and (instr[1] == '='):
                 if (instr[0] in declared_vars) or (instr[0] in declared_ids):
-                    raise Exception(f" already declared: {instr[0]}")
+                    raise ValueError(f" already declared: {instr[0]}")
                 check_valid_recursively(instr[2:], declared_vars, declared_ids)
                 declared_ids.append(instr[0])
             
@@ -314,10 +320,10 @@ class Compiler():
             elif (instr[0] == 'show') or (instr[0] == 'show_ones'):
                 for t in instr[1:]:
                     if ((t not in declared_ids) and (t not in declared_vars)) or (t in ('(', ')', 'and', 'or', 'not', 'True', 'False')):
-                        raise Exception(f"Unknown identifier: {t}")
+                        raise ValueError(f"Unknown identifier: {t}")
             
             else:
-                raise Exception(f'Invalid instruction: {instr}')
+                raise ValueError(f'Invalid instruction: {instr}')
 
         return instructions
     
@@ -354,12 +360,13 @@ class Compiler():
             
             # ASSIGNMENT -> store in self.ids as {'z': ['x', 'and', 'y']}
             elif i[1] == '=':
+                # re_evaluate = True  # re-evaluate all ids after an assignment
                 if verbose:
                     print(f'Assignment: {i}')
                 if (i[0] not in self.vars) and (i[0] not in self.ids):
                     self.ids[i[0]] = build_tree_recursively(i[2:])
                 else:
-                    raise Exception(f"{i[0]} already exists.")
+                    raise ValueError(f"{i[0]} already exists.")
             
 
             # SHOW
@@ -372,8 +379,27 @@ class Compiler():
             
             # INVALID
             else:   
-                raise Exception(f"Invalid instruction: {i}")
+                raise ValueError(f"Invalid instruction: {i}")
     
+    def evaluate_rows_dynamically(self, root, vars, results, idx):
+        if idx == len(self.vars):
+            if root.eval(vars):
+                results.append(vars.copy())
+                print(results)
+            return
+
+        vars[self.vars[idx]] = False
+        # print(vars)
+        # print(root.eval(vars))
+        if root.eval(vars) != False:
+            self.evaluate_rows_dynamically(root, vars, results, idx + 1)
+
+        vars[self.vars[idx]] = True
+        # print(vars)
+        # print(root.eval(vars))
+        if root.eval(vars) != False:
+            self.evaluate_rows_dynamically(root, vars, results, idx + 1)
+
     def _show(self,
               ids_to_show: list=None,
               show_ones: bool=False
@@ -390,55 +416,47 @@ class Compiler():
                 whether to show only rows where at least one identifier takes a value of 1.
         
         """
-
-        # Skip rows where at least one of the variables is False and operator is AND
-        must_be_true = []
-        if len(ids_to_show) == 1 and (ids_to_show[0] in self.ids) and (self.ids[ids_to_show[0]].value == 'and'):
-            id = ids_to_show[0]
-            for child in self.ids[ids_to_show[0]].children:
-                if child.value in self.vars:
-                    must_be_true.append(child.value)
         
-        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show) + '\n')
+        
+        print('#' + ' ' + ' '.join(self.vars) + '   ' + ' '.join(ids_to_show))
         
         vars_value = list(product([False, True], repeat=len(self.vars)))
         n = len(self.vars)   
         i = 0
-        while i < 2**n:
-            vars = dict(zip(self.vars, vars_value[i]))
-            row = ' '
-            valid_row = not show_ones
-            for v in vars:
-                row += ' 1' if vars[v] == True else ' 0'
-            row += '  '
 
-            # Row skipping implemented for simple case only
-            if must_be_true != []:
-                skip = False
-                for v in must_be_true:
-                    if not vars[v]:
-                        skip = True
-                        break
-                if skip:
-                    i += 1
-                    continue
-            # Evaluate the row for all ids
-            for id in self.ids.keys():
-                vars[id] = self.ids[id].eval(vars)
+        for id in self.ids:
+            idx = 0
+            root = self.ids[id]
+            results = []
+            vars = {v:None for v in self.vars}
+            self.evaluate_rows_dynamically(root, vars, results, idx)
+
+        # while i < 2**n:
+        #     vars = dict(zip(self.vars, vars_value[i]))
+        #     row = ' '
+        #     valid_row = not show_ones
+        #     for v in vars:
+        #         row += ' 1' if vars[v] == True else ' 0'
+        #     row += '  '
+        #     # cache = {}
+
+        #     # Evaluate the row for all ids
+        #     for id in self.ids.keys():
+        #         vars[id] = self.ids[id].eval(vars)
             
-            # Print the ones requested
-            for id in ids_to_show:
-                row += ' 1' if vars[id] == True else ' 0'
+        #     # Print the ones requested
+        #     for id in ids_to_show:
+        #         row += ' 1' if vars[id] == True else ' 0'
                 
-                # if at least one id is True, the row is valid
-                if vars[id] and (not valid_row):
-                    valid_row = True
+        #         # if at least one id is True, the row is valid
+        #         if vars[id] and (not valid_row):
+        #             valid_row = True
             
-            # After completing the row
-            if valid_row:
-                print(row)
-            i += 1
-        return
+        #     # After completing the row
+        #     if valid_row:
+        #         print(row)
+        #     i += 1
+        # return
         
     def compile(self,
                 f,
